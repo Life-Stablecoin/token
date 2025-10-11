@@ -9,9 +9,41 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 /*
 Changes from the USDC contract:
 - Removed SafeMath usage (not needed for Solidity 0.8 and above)
-- Removed AbstractFiatTokenV1 and implemented its methods directly in FiatTokenV1
+- merged AbstractFiatTokenV2 into AbstractFiatTokenV1
+- EIP712Domain removed because it only contains _DEPRECATED_CACHED_DOMAIN_SEPARATOR
 */
 
+abstract contract AbstractFiatTokenV1  {
+    function _approve(
+        address owner,
+        address spender,
+        uint256 value
+    ) internal virtual;
+
+    function _transfer(
+        address from,
+        address to,
+        uint256 value
+    ) internal virtual;
+
+    function _increaseAllowance(
+        address owner,
+        address spender,
+        uint256 increment
+    ) internal virtual;
+
+    function _decreaseAllowance(
+        address owner,
+        address spender,
+        uint256 decrement
+    ) internal virtual;
+
+    function _domainSeparator(
+        address owner,
+        address spender,
+        uint256 decrement
+    ) internal virtual view returns (bytes32);
+}
 
 contract Ownable {
     // Owner of the contract
@@ -267,11 +299,635 @@ contract Rescuable is Ownable {
     }
 }
 
+library EIP712 {
+    /**
+     * @notice Make EIP712 domain separator
+     * @param name      Contract name
+     * @param version   Contract version
+     * @param chainId   Blockchain ID
+     * @return Domain separator
+     */
+    function makeDomainSeparator(
+        string memory name,
+        string memory version,
+        uint256 chainId
+    ) internal view returns (bytes32) {
+        return
+            keccak256(
+                abi.encode(
+                    // precomputed type hash from keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
+                    0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f,
+
+                    keccak256(bytes(name)),
+                    keccak256(bytes(version)),
+                    chainId,
+                    address(this)
+                )
+            );
+    }
+
+    /**
+     * @notice Make EIP712 domain separator
+     * @param name      Contract name
+     * @param version   Contract version
+     * @return Domain separator
+     */
+    function makeDomainSeparator(string memory name, string memory version)
+        internal
+        view
+        returns (bytes32)
+    {
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        return makeDomainSeparator(name, version, chainId);
+    }
+}
+
+library MessageHashUtils {
+    /**
+     * @dev Returns the keccak256 digest of an EIP-712 typed data (EIP-191 version `0x01`).
+     * Adapted from https://github.com/OpenZeppelin/openzeppelin-contracts/blob/21bb89ef5bfc789b9333eb05e3ba2b7b284ac77c/contracts/utils/cryptography/MessageHashUtils.sol
+     *
+     * The digest is calculated from a `domainSeparator` and a `structHash`, by prefixing them with
+     * `\x19\x01` and hashing the result. It corresponds to the hash signed by the
+     * https://eips.ethereum.org/EIPS/eip-712[`eth_signTypedData`] JSON-RPC method as part of EIP-712.
+     *
+     * @param domainSeparator    Domain separator
+     * @param structHash         Hashed EIP-712 data struct
+     * @return digest            The keccak256 digest of an EIP-712 typed data
+     */
+    function toTypedDataHash(bytes32 domainSeparator, bytes32 structHash)
+        internal
+        pure
+        returns (bytes32 digest)
+    {
+        assembly {
+            let ptr := mload(0x40)
+            mstore(ptr, "\x19\x01")
+            mstore(add(ptr, 0x02), domainSeparator)
+            mstore(add(ptr, 0x22), structHash)
+            digest := keccak256(ptr, 0x42)
+        }
+    }
+}
+
+library ECRecover {
+    /**
+     * @notice Recover signer's address from a signed message
+     * @dev Adapted from: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/65e4ffde586ec89af3b7e9140bdc9235d1254853/contracts/cryptography/ECDSA.sol
+     * Modifications: Accept v, r, and s as separate arguments
+     * @param digest    Keccak-256 hash digest of the signed message
+     * @param v         v of the signature
+     * @param r         r of the signature
+     * @param s         s of the signature
+     * @return Signer address
+     */
+    function recover(
+        bytes32 digest,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal pure returns (address) {
+        // EIP-2 still allows signature malleability for ecrecover(). Remove this possibility and make the signature
+        // unique. Appendix F in the Ethereum Yellow paper (https://ethereum.github.io/yellowpaper/paper.pdf), defines
+        // the valid range for s in (281): 0 < s < secp256k1n ÷ 2 + 1, and for v in (282): v ∈ {27, 28}. Most
+        // signatures from current libraries generate a unique signature with an s-value in the lower half order.
+        //
+        // If your library generates malleable signatures, such as s-values in the upper range, calculate a new s-value
+        // with 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141 - s1 and flip v from 27 to 28 or
+        // vice versa. If your library also generates signatures with 0/1 for v instead 27/28, add 27 to v to accept
+        // these malleable signatures as well.
+        if (
+            uint256(s) >
+            0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+        ) {
+            revert("ECRecover: invalid signature 's' value");
+        }
+
+        if (v != 27 && v != 28) {
+            revert("ECRecover: invalid signature 'v' value");
+        }
+
+        // If the signature is valid (and not malleable), return the signer address
+        address signer = ecrecover(digest, v, r, s);
+        require(signer != address(0), "ECRecover: invalid signature");
+
+        return signer;
+    }
+
+    /**
+     * @notice Recover signer's address from a signed message
+     * @dev Adapted from: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/0053ee040a7ff1dbc39691c9e67a69f564930a88/contracts/utils/cryptography/ECDSA.sol
+     * @param digest    Keccak-256 hash digest of the signed message
+     * @param signature Signature byte array associated with hash
+     * @return Signer address
+     */
+    function recover(bytes32 digest, bytes memory signature)
+        internal
+        pure
+        returns (address)
+    {
+        require(signature.length == 65, "ECRecover: invalid signature length");
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        // ecrecover takes the signature parameters, and the only way to get them
+        // currently is to use assembly.
+        /// @solidity memory-safe-assembly
+        assembly {
+            r := mload(add(signature, 0x20))
+            s := mload(add(signature, 0x40))
+            v := byte(0, mload(add(signature, 0x60)))
+        }
+        return recover(digest, v, r, s);
+    }
+}
+
+/**
+ * @dev Interface of the ERC1271 standard signature validation method for
+ * contracts as defined in https://eips.ethereum.org/EIPS/eip-1271[ERC-1271].
+ */
+interface IERC1271 {
+    /**
+     * @dev Should return whether the signature provided is valid for the provided data
+     * @param hash          Hash of the data to be signed
+     * @param signature     Signature byte array associated with the provided data hash
+     * @return magicValue   bytes4 magic value 0x1626ba7e when function passes
+     */
+    function isValidSignature(bytes32 hash, bytes memory signature)
+        external
+        view
+        returns (bytes4 magicValue);
+}
+
+library SignatureChecker {
+    /**
+     * @dev Checks if a signature is valid for a given signer and data hash. If the signer is a smart contract, the
+     * signature is validated against that smart contract using ERC1271, otherwise it's validated using `ECRecover.recover`.
+     * @param signer        Address of the claimed signer
+     * @param digest        Keccak-256 hash digest of the signed message
+     * @param signature     Signature byte array associated with hash
+     */
+    function isValidSignatureNow(
+        address signer,
+        bytes32 digest,
+        bytes memory signature
+    ) external view returns (bool) {
+        if (!isContract(signer)) {
+            return ECRecover.recover(digest, signature) == signer;
+        }
+        return isValidERC1271SignatureNow(signer, digest, signature);
+    }
+
+    /**
+     * @dev Checks if a signature is valid for a given signer and data hash. The signature is validated
+     * against the signer smart contract using ERC1271.
+     * @param signer        Address of the claimed signer
+     * @param digest        Keccak-256 hash digest of the signed message
+     * @param signature     Signature byte array associated with hash
+     *
+     * NOTE: Unlike ECDSA signatures, contract signatures are revocable, and the outcome of this function can thus
+     * change through time. It could return true at block N and false at block N+1 (or the opposite).
+     */
+    function isValidERC1271SignatureNow(
+        address signer,
+        bytes32 digest,
+        bytes memory signature
+    ) internal view returns (bool) {
+        (bool success, bytes memory result) = signer.staticcall(
+            abi.encodeWithSelector(
+                IERC1271.isValidSignature.selector,
+                digest,
+                signature
+            )
+        );
+        return (success &&
+            result.length >= 32 &&
+            abi.decode(result, (bytes32)) ==
+            bytes32(IERC1271.isValidSignature.selector));
+    }
+
+    /**
+     * @dev Checks if the input address is a smart contract.
+     */
+    function isContract(address addr) internal view returns (bool) {
+        uint256 size;
+        assembly {
+            size := extcodesize(addr)
+        }
+        return size > 0;
+    }
+}
+
+abstract contract EIP2612 is AbstractFiatTokenV1 {
+    // keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
+    bytes32 public constant PERMIT_TYPEHASH = 
+        0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
+
+    mapping(address => uint256) private _permitNonces;
+
+    /**
+     * @notice Nonces for permit
+     * @param owner Token owner's address (Authorizer)
+     * @return Next nonce
+     */
+    function nonces(address owner) external view returns (uint256) {
+        return _permitNonces[owner];
+    }
+
+    /**
+     * @notice Verify a signed approval permit and execute if valid
+     * @param owner     Token owner's address (Authorizer)
+     * @param spender   Spender's address
+     * @param value     Amount of allowance
+     * @param deadline  The time at which the signature expires (unix time), or max uint256 value to signal no expiration
+     * @param v         v of the signature
+     * @param r         r of the signature
+     * @param s         s of the signature
+     */
+    function _permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
+        _permit(owner, spender, value, deadline, abi.encodePacked(r, s, v));
+    }
+
+    /**
+     * @notice Verify a signed approval permit and execute if valid
+     * @dev EOA wallet signatures should be packed in the order of r, s, v.
+     * @param owner      Token owner's address (Authorizer)
+     * @param spender    Spender's address
+     * @param value      Amount of allowance
+     * @param deadline   The time at which the signature expires (unix time), or max uint256 value to signal no expiration
+     * @param signature  Signature byte array signed by an EOA wallet or a contract wallet
+     */
+    function _permit(
+        address owner,
+        address spender,
+        uint256 value,
+        uint256 deadline,
+        bytes memory signature
+    ) internal {
+        require(
+            deadline == type(uint256).max || deadline >= now,
+            "FiatTokenV1: permit is expired"
+        );
+
+        bytes32 typedDataHash = MessageHashUtils.toTypedDataHash(
+            _domainSeparator(),
+            keccak256(
+                abi.encode(
+                    PERMIT_TYPEHASH,
+                    owner,
+                    spender,
+                    value,
+                    _permitNonces[owner]++,
+                    deadline
+                )
+            )
+        );
+        require(
+            SignatureChecker.isValidSignatureNow(
+                owner,
+                typedDataHash,
+                signature
+            ),
+            "EIP2612: invalid signature"
+        );
+
+        _approve(owner, spender, value);
+    }
+}
+
+/**
+ * @title EIP-3009
+ * @notice Provide internal implementation for gas-abstracted transfers
+ * @dev Contracts that inherit from this must wrap these with publicly
+ * accessible functions, optionally adding modifiers where necessary
+ */
+abstract contract EIP3009 is AbstractFiatTokenV1 {
+    // keccak256("TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)")
+    bytes32
+        public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH = 0x7c7c6cdb67a18743f49ec6fa9b35f50d52ed05cbed4cc592e13b44501c1a2267;
+
+    // keccak256("ReceiveWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)")
+    bytes32
+        public constant RECEIVE_WITH_AUTHORIZATION_TYPEHASH = 0xd099cc98ef71107a616c4f0f941f04c322d8e254fe26b3c6668db87aae413de8;
+
+    // keccak256("CancelAuthorization(address authorizer,bytes32 nonce)")
+    bytes32
+        public constant CANCEL_AUTHORIZATION_TYPEHASH = 0x158b0a9edf7a828aad02f63cd515c68ef2f50ba807396f6d12842833a1597429;
+
+    /**
+     * @dev authorizer address => nonce => bool (true if nonce is used)
+     */
+    mapping(address => mapping(bytes32 => bool)) private _authorizationStates;
+
+    event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
+    event AuthorizationCanceled(
+        address indexed authorizer,
+        bytes32 indexed nonce
+    );
+
+    /**
+     * @notice Returns the state of an authorization
+     * @dev Nonces are randomly generated 32-byte data unique to the
+     * authorizer's address
+     * @param authorizer    Authorizer's address
+     * @param nonce         Nonce of the authorization
+     * @return True if the nonce is used
+     */
+    function authorizationState(address authorizer, bytes32 nonce)
+        external
+        view
+        returns (bool)
+    {
+        return _authorizationStates[authorizer][nonce];
+    }
+
+    /**
+     * @notice Execute a transfer with a signed authorization
+     * @param from          Payer's address (Authorizer)
+     * @param to            Payee's address
+     * @param value         Amount to be transferred
+     * @param validAfter    The time after which this is valid (unix time)
+     * @param validBefore   The time before which this is valid (unix time)
+     * @param nonce         Unique nonce
+     * @param v             v of the signature
+     * @param r             r of the signature
+     * @param s             s of the signature
+     */
+    function _transferWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
+        _transferWithAuthorization(
+            from,
+            to,
+            value,
+            validAfter,
+            validBefore,
+            nonce,
+            abi.encodePacked(r, s, v)
+        );
+    }
+
+    /**
+     * @notice Execute a transfer with a signed authorization
+     * @dev EOA wallet signatures should be packed in the order of r, s, v.
+     * @param from          Payer's address (Authorizer)
+     * @param to            Payee's address
+     * @param value         Amount to be transferred
+     * @param validAfter    The time after which this is valid (unix time)
+     * @param validBefore   The time before which this is valid (unix time)
+     * @param nonce         Unique nonce
+     * @param signature     Signature byte array produced by an EOA wallet or a contract wallet
+     */
+    function _transferWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        bytes memory signature
+    ) internal {
+        _requireValidAuthorization(from, nonce, validAfter, validBefore);
+        _requireValidSignature(
+            from,
+            keccak256(
+                abi.encode(
+                    TRANSFER_WITH_AUTHORIZATION_TYPEHASH,
+                    from,
+                    to,
+                    value,
+                    validAfter,
+                    validBefore,
+                    nonce
+                )
+            ),
+            signature
+        );
+
+        _markAuthorizationAsUsed(from, nonce);
+        _transfer(from, to, value);
+    }
+
+    /**
+     * @notice Receive a transfer with a signed authorization from the payer
+     * @dev This has an additional check to ensure that the payee's address
+     * matches the caller of this function to prevent front-running attacks.
+     * @param from          Payer's address (Authorizer)
+     * @param to            Payee's address
+     * @param value         Amount to be transferred
+     * @param validAfter    The time after which this is valid (unix time)
+     * @param validBefore   The time before which this is valid (unix time)
+     * @param nonce         Unique nonce
+     * @param v             v of the signature
+     * @param r             r of the signature
+     * @param s             s of the signature
+     */
+    function _receiveWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
+        _receiveWithAuthorization(
+            from,
+            to,
+            value,
+            validAfter,
+            validBefore,
+            nonce,
+            abi.encodePacked(r, s, v)
+        );
+    }
+
+    /**
+     * @notice Receive a transfer with a signed authorization from the payer
+     * @dev This has an additional check to ensure that the payee's address
+     * matches the caller of this function to prevent front-running attacks.
+     * EOA wallet signatures should be packed in the order of r, s, v.
+     * @param from          Payer's address (Authorizer)
+     * @param to            Payee's address
+     * @param value         Amount to be transferred
+     * @param validAfter    The time after which this is valid (unix time)
+     * @param validBefore   The time before which this is valid (unix time)
+     * @param nonce         Unique nonce
+     * @param signature     Signature byte array produced by an EOA wallet or a contract wallet
+     */
+    function _receiveWithAuthorization(
+        address from,
+        address to,
+        uint256 value,
+        uint256 validAfter,
+        uint256 validBefore,
+        bytes32 nonce,
+        bytes memory signature
+    ) internal {
+        require(to == msg.sender, "FiatTokenV2: caller must be the payee");
+        _requireValidAuthorization(from, nonce, validAfter, validBefore);
+        _requireValidSignature(
+            from,
+            keccak256(
+                abi.encode(
+                    RECEIVE_WITH_AUTHORIZATION_TYPEHASH,
+                    from,
+                    to,
+                    value,
+                    validAfter,
+                    validBefore,
+                    nonce
+                )
+            ),
+            signature
+        );
+
+        _markAuthorizationAsUsed(from, nonce);
+        _transfer(from, to, value);
+    }
+
+    /**
+     * @notice Attempt to cancel an authorization
+     * @param authorizer    Authorizer's address
+     * @param nonce         Nonce of the authorization
+     * @param v             v of the signature
+     * @param r             r of the signature
+     * @param s             s of the signature
+     */
+    function _cancelAuthorization(
+        address authorizer,
+        bytes32 nonce,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) internal {
+        _cancelAuthorization(authorizer, nonce, abi.encodePacked(r, s, v));
+    }
+
+    /**
+     * @notice Attempt to cancel an authorization
+     * @dev EOA wallet signatures should be packed in the order of r, s, v.
+     * @param authorizer    Authorizer's address
+     * @param nonce         Nonce of the authorization
+     * @param signature     Signature byte array produced by an EOA wallet or a contract wallet
+     */
+    function _cancelAuthorization(
+        address authorizer,
+        bytes32 nonce,
+        bytes memory signature
+    ) internal {
+        _requireUnusedAuthorization(authorizer, nonce);
+        _requireValidSignature(
+            authorizer,
+            keccak256(
+                abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, authorizer, nonce)
+            ),
+            signature
+        );
+
+        _authorizationStates[authorizer][nonce] = true;
+        emit AuthorizationCanceled(authorizer, nonce);
+    }
+
+    /**
+     * @notice Validates that signature against input data struct
+     * @param signer        Signer's address
+     * @param dataHash      Hash of encoded data struct
+     * @param signature     Signature byte array produced by an EOA wallet or a contract wallet
+     */
+    function _requireValidSignature(
+        address signer,
+        bytes32 dataHash,
+        bytes memory signature
+    ) private view {
+        require(
+            SignatureChecker.isValidSignatureNow(
+                signer,
+                MessageHashUtils.toTypedDataHash(_domainSeparator(), dataHash),
+                signature
+            ),
+            "FiatTokenV2: invalid signature"
+        );
+    }
+
+    /**
+     * @notice Check that an authorization is unused
+     * @param authorizer    Authorizer's address
+     * @param nonce         Nonce of the authorization
+     */
+    function _requireUnusedAuthorization(address authorizer, bytes32 nonce)
+        private
+        view
+    {
+        require(
+            !_authorizationStates[authorizer][nonce],
+            "FiatTokenV2: authorization is used or canceled"
+        );
+    }
+
+    /**
+     * @notice Check that authorization is valid
+     * @param authorizer    Authorizer's address
+     * @param nonce         Nonce of the authorization
+     * @param validAfter    The time after which this is valid (unix time)
+     * @param validBefore   The time before which this is valid (unix time)
+     */
+    function _requireValidAuthorization(
+        address authorizer,
+        bytes32 nonce,
+        uint256 validAfter,
+        uint256 validBefore
+    ) private view {
+        require(
+            now > validAfter,
+            "FiatTokenV2: authorization is not yet valid"
+        );
+        require(now < validBefore, "FiatTokenV2: authorization is expired");
+        _requireUnusedAuthorization(authorizer, nonce);
+    }
+
+    /**
+     * @notice Mark an authorization as used
+     * @param authorizer    Authorizer's address
+     * @param nonce         Nonce of the authorization
+     */
+    function _markAuthorizationAsUsed(address authorizer, bytes32 nonce)
+        private
+    {
+        _authorizationStates[authorizer][nonce] = true;
+        emit AuthorizationUsed(authorizer, nonce);
+    }
+}
+
 /**
  * @title FiatToken
  * @dev ERC20 Token backed by fiat reserves
  */
-contract FiatTokenV1 is IERC20, Ownable, Pausable, Blacklistable, Rescuable {
+contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable, 
+    Blacklistable, Rescuable, EIP3009, EIP2612 {
     string public name;
     uint8 public decimals;
     string public symbol;
@@ -342,6 +998,22 @@ contract FiatTokenV1 is IERC20, Ownable, Pausable, Blacklistable, Rescuable {
         blacklister = newBlacklister;
         setOwner(newOwner);
         initialized = true;
+    }
+
+    /**
+     * @dev Internal function to get the current chain id.
+     * @return The current chain id.
+     */
+    function _chainId() internal virtual view returns (uint256) {
+        uint256 chainId;
+        assembly {
+            chainId := chainid()
+        }
+        return chainId;
+    }
+
+    function _domainSeparator() internal virtual override view returns (bytes32) {
+        return EIP712.makeDomainSeparator(name, "2", _chainId());
     }
 
     /**
@@ -480,7 +1152,7 @@ contract FiatTokenV1 is IERC20, Ownable, Pausable, Blacklistable, Rescuable {
         address owner,
         address spender,
         uint256 value
-    ) internal virtual {
+    ) internal virtual override {
         require(owner != address(0), "ERC20: approve from the zero address");
         require(spender != address(0), "ERC20: approve to the zero address");
         allowed[owner][spender] = value;
@@ -545,7 +1217,7 @@ contract FiatTokenV1 is IERC20, Ownable, Pausable, Blacklistable, Rescuable {
         address from,
         address to,
         uint256 value
-    ) internal virtual {
+    ) internal virtual override {
         require(from != address(0), "ERC20: transfer from the zero address");
         require(to != address(0), "ERC20: transfer to the zero address");
         require(
