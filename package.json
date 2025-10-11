@@ -1,0 +1,11 @@
+{
+  "name": "aed-stablecoin",
+  "version": "1.0.0",
+  "description": "AED Stablecoin Smart Contracts for EVM-compatible blockchains",
+  "author": "TLabs",
+  "scripts": {
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "5.4.0"
+  }
+}
