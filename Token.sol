@@ -480,7 +480,7 @@ library SignatureChecker {
         address signer,
         bytes32 digest,
         bytes memory signature
-    ) external view returns (bool) {
+    ) internal view returns (bool) {
         if (!isContract(signer)) {
             return ECRecover.recover(digest, signature) == signer;
         }
