@@ -39,11 +39,7 @@ abstract contract AbstractFiatTokenV1  {
         uint256 decrement
     ) internal virtual;
 
-    function _domainSeparator(
-        address owner,
-        address spender,
-        uint256 decrement
-    ) internal virtual view returns (bytes32);
+    function _domainSeparator() internal virtual view returns (bytes32);
 }
 
 contract Ownable {
