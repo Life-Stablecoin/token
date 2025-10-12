@@ -579,7 +579,7 @@ abstract contract EIP2612 is AbstractFiatTokenV1 {
         bytes memory signature
     ) internal {
         require(
-            deadline == type(uint256).max || deadline >= now,
+            deadline == type(uint256).max || deadline >= block.timestamp,
             "FiatTokenV1: permit is expired"
         );
 
@@ -1068,8 +1068,8 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
             "ERC20: transfer amount exceeds balance"
         );
 
-        _setBalance(from, _balanceOf(from).sub(value));
-        _setBalance(to, _balanceOf(to).add(value));
+        _setBalance(from, _balanceOf(from) - value);
+        _setBalance(to, _balanceOf(to) + value);
         emit Transfer(from, to, value);
     }
 
@@ -1117,7 +1117,7 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
      * @param _account The address of the account.
      * @param _balance The new fiat token balance of the account (max: (2^255 - 1)).
      */
-    function _setBalance(address _account, uint256 _balance) internal override {
+    function _setBalance(address _account, uint256 _balance) internal virtual {
         require(
             _balance <= ((1 << 255) - 1),
             "FiatTokenV2_2: Balance exceeds (2^255 - 1)"
@@ -1161,7 +1161,7 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
             "ERC20: transfer amount exceeds allowance"
         );
         _transfer(from, to, value);
-        allowed[from][msg.sender] = allowed[from][msg.sender].sub(value);
+        allowed[from][msg.sender] = allowed[from][msg.sender] - value;
         return true;
     }
 
@@ -1249,7 +1249,7 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         address spender,
         uint256 increment
     ) internal override {
-        _approve(owner, spender, allowed[owner][spender].add(increment));
+        _approve(owner, spender, allowed[owner][spender] + increment);
     }
 
     /**
@@ -1263,14 +1263,9 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         address spender,
         uint256 decrement
     ) internal override {
-        _approve(
-            owner,
-            spender,
-            allowed[owner][spender].sub(
-                decrement,
-                "ERC20: decreased allowance below zero"
-            )
-        );
+        uint256 newAllowance = allowed[owner][spender] - decrement;
+        require(newAllowance >= 0, "ERC20: decreased allowance below zero");
+        _approve(owner, spender, newAllowance);
     }
 
     /**
@@ -1371,9 +1366,9 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
             "FiatToken: mint amount exceeds minterAllowance"
         );
 
-        totalSupply_ = totalSupply_.add(_amount);
-        _setBalance(_to, _balanceOf(_to).add(_amount));
-        minterAllowed[msg.sender] = mintingAllowedAmount.sub(_amount);
+        totalSupply_ = totalSupply_ + _amount;
+        _setBalance(_to, _balanceOf(_to) + _amount);
+        minterAllowed[msg.sender] = mintingAllowedAmount - _amount;
         emit Mint(msg.sender, _to, _amount);
         emit Transfer(address(0), _to, _amount);
         return true;
@@ -1395,8 +1390,8 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         require(_amount > 0, "FiatToken: burn amount not greater than 0");
         require(balance >= _amount, "FiatToken: burn amount exceeds balance");
 
-        totalSupply_ = totalSupply_.sub(_amount);
-        _setBalance(msg.sender, balance.sub(_amount));
+        totalSupply_ = totalSupply_ - _amount;
+        _setBalance(msg.sender, balance - _amount);
         emit Burn(msg.sender, _amount);
         emit Transfer(msg.sender, address(0), _amount);
     }
