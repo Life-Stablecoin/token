@@ -1,5 +1,14 @@
 /**
  * SPDX-License-Identifier: Apache-2.0
+
+ Changes from the USDC contract:
+- merged AbstractFiatTokenV2 into AbstractFiatTokenV1
+- removed initialized boolean, _initializedVersion is enough
+- EIP712Domain removed because it only contains _DEPRECATED_CACHED_DOMAIN_SEPARATOR
+- Removed SafeMath usage (not needed for Solidity 0.8 and above)
+- removed public from constructors (not needed in Solidity 0.7 and above)
+- used block.timestamp instead of now (deprecated in modern solidity)
+- used +/- instead of add/sub (deprecated in modern solidity)
  */
 
 pragma solidity >=0.8.0;
@@ -11,13 +20,6 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 
 
 /*
-Changes from the USDC contract:
-- Removed SafeMath usage (not needed for Solidity 0.8 and above)
-- merged AbstractFiatTokenV2 into AbstractFiatTokenV1
-- EIP712Domain removed because it only contains _DEPRECATED_CACHED_DOMAIN_SEPARATOR
-- removed initialized boolean, _initializedVersion is enough
-- used block.timestamp instead of now (deprecated in modern solidity)
-- used +/- instead of add/sub (deprecated in modern solidity)
 
 */
 

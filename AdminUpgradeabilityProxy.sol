@@ -1,5 +1,9 @@
 /**
  * SPDX-License-Identifier: Apache-2.0
+
+ Changes from the USDC contract:
+- removed public from constructors (not needed in Solidity 0.7 and above)
+- added empty receive() to remove warning
  */
 
 pragma solidity >=0.8.0;
@@ -22,6 +26,10 @@ abstract contract Proxy {
      */
     fallback() external payable {
         _fallback();
+    }
+    
+    receive() external payable virtual {
+        // explicitly allow receiving ETH, added because of warning
     }
 
     /**
@@ -112,7 +120,7 @@ contract UpgradeabilityProxy is Proxy {
      * @dev Contract constructor.
      * @param implementationContract Address of the initial implementation.
      */
-    constructor(address implementationContract) public {
+    constructor(address implementationContract) {
         assert(
             IMPLEMENTATION_SLOT ==
                 keccak256("org.zeppelinos.proxy.implementation")
@@ -203,7 +211,6 @@ contract AdminUpgradeabilityProxy is UpgradeabilityProxy {
      * @param implementationContract address of the initial implementation.
      */
     constructor(address implementationContract)
-        public
         UpgradeabilityProxy(implementationContract)
     {
         assert(ADMIN_SLOT == keccak256("org.zeppelinos.proxy.admin"));
