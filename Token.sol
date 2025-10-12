@@ -1024,92 +1024,6 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         return EIP712.makeDomainSeparator(name, "1", _chainId());
     }
 
-
-    /**
-     * @dev Throws if called by any account other than a minter.
-     */
-    modifier onlyMinters() {
-        require(minters[msg.sender], "FiatToken: caller is not a minter");
-        _;
-    }
-
-    /**
-     * @notice Mints fiat tokens to an address.
-     * @param _to The address that will receive the minted tokens.
-     * @param _amount The amount of tokens to mint. Must be less than or equal
-     * to the minterAllowance of the caller.
-     * @return True if the operation was successful.
-     */
-    function mint(address _to, uint256 _amount)
-        external
-        whenNotPaused
-        onlyMinters
-        notBlacklisted(msg.sender)
-        notBlacklisted(_to)
-        returns (bool)
-    {
-        require(_to != address(0), "FiatToken: mint to the zero address");
-        require(_amount > 0, "FiatToken: mint amount not greater than 0");
-
-        uint256 mintingAllowedAmount = minterAllowed[msg.sender];
-        require(
-            _amount <= mintingAllowedAmount,
-            "FiatToken: mint amount exceeds minterAllowance"
-        );
-
-        totalSupply_ = totalSupply_.add(_amount);
-        _setBalance(_to, _balanceOf(_to).add(_amount));
-        minterAllowed[msg.sender] = mintingAllowedAmount.sub(_amount);
-        emit Mint(msg.sender, _to, _amount);
-        emit Transfer(address(0), _to, _amount);
-        return true;
-    }
-
-    /**
-     * @dev Throws if called by any account other than the masterMinter
-     */
-    modifier onlyMasterMinter() {
-        require(
-            msg.sender == masterMinter,
-            "FiatToken: caller is not the masterMinter"
-        );
-        _;
-    }
-
-    /**
-     * @notice Gets the minter allowance for an account.
-     * @param minter The address to check.
-     * @return The remaining minter allowance for the account.
-     */
-    function minterAllowance(address minter) external view returns (uint256) {
-        return minterAllowed[minter];
-    }
-
-    /**
-     * @notice Checks if an account is a minter.
-     * @param account The address to check.
-     * @return True if the account is a minter, false if the account is not a minter.
-     */
-    function isMinter(address account) external view returns (bool) {
-        return minters[account];
-    }
-
-    /**
-     * @notice Gets the remaining amount of fiat tokens a spender is allowed to transfer on
-     * behalf of the token owner.
-     * @param owner   The token owner's address.
-     * @param spender The spender's address.
-     * @return The remaining allowance.
-     */
-    function allowance(address owner, address spender)
-        external
-        override
-        view
-        returns (uint256)
-    {
-        return allowed[owner][spender];
-    }
-
     /**
      * @notice Gets the totalSupply of the fiat token.
      * @return The totalSupply of the fiat token.
@@ -1117,6 +1031,51 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
     function totalSupply() external override view returns (uint256) {
         return totalSupply_;
     }
+
+    /**
+     * @notice Transfers tokens from the caller.
+     * @param to    Payee's address.
+     * @param value Transfer amount.
+     * @return True if the operation was successful.
+     */
+    function transfer(address to, uint256 value)
+        external
+        override
+        whenNotPaused
+        notBlacklisted(msg.sender)
+        notBlacklisted(to)
+        returns (bool)
+    {
+        _transfer(msg.sender, to, value);
+        return true;
+    }
+
+    /**
+     * @dev Internal function to process transfers.
+     * @param from  Payer's address.
+     * @param to    Payee's address.
+     * @param value Transfer amount.
+     */
+    function _transfer(
+        address from,
+        address to,
+        uint256 value
+    ) internal virtual override {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+        require(
+            value <= _balanceOf(from),
+            "ERC20: transfer amount exceeds balance"
+        );
+
+        _setBalance(from, _balanceOf(from).sub(value));
+        _setBalance(to, _balanceOf(to).add(value));
+        emit Transfer(from, to, value);
+    }
+
+
+    // Balances
+
 
     /**
      * @notice Gets the fiat token balance of an account.
@@ -1130,6 +1089,80 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         returns (uint256)
     {
         return _balanceOf(account);
+    }
+    
+    /**
+     * @dev Helper method to obtain the balance of an account. Since balances
+     * are stored in the last 255 bits of the balanceAndBlacklistStates value,
+     * we apply a ((1 << 255) - 1) bit bitmask with an AND operation on the
+     * balanceAndBlacklistState to obtain the balance.
+     * @param _account  The address of the account.
+     * @return          The fiat token balance of the account.
+     */
+    function _balanceOf(address _account)
+        internal
+        virtual
+        view
+        returns (uint256)
+    {
+        return balanceAndBlacklistStates[_account] & ((1 << 255) - 1);
+    }
+
+    /**
+     * @dev Helper method that sets the balance of an account on balanceAndBlacklistStates.
+     * Since balances are stored in the last 255 bits of the balanceAndBlacklistStates value,
+     * we need to ensure that the updated balance does not exceed (2^255 - 1).
+     * Since blacklisted accounts' balances cannot be updated, the method will also
+     * revert if the account is blacklisted
+     * @param _account The address of the account.
+     * @param _balance The new fiat token balance of the account (max: (2^255 - 1)).
+     */
+    function _setBalance(address _account, uint256 _balance) internal override {
+        require(
+            _balance <= ((1 << 255) - 1),
+            "FiatTokenV2_2: Balance exceeds (2^255 - 1)"
+        );
+        require(
+            !_isBlacklisted(_account),
+            "FiatTokenV2_2: Account is blacklisted"
+        );
+
+        balanceAndBlacklistStates[_account] = _balance;
+    }
+
+
+
+    // Allowances, permits
+    
+
+    /**
+     * @notice Transfers tokens from an address to another by spending the caller's allowance.
+     * @dev The caller must have some fiat token allowance on the payer's tokens.
+     * @param from  Payer's address.
+     * @param to    Payee's address.
+     * @param value Transfer amount.
+     * @return True if the operation was successful.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 value
+    )
+        external
+        override
+        whenNotPaused
+        notBlacklisted(msg.sender)
+        notBlacklisted(from)
+        notBlacklisted(to)
+        returns (bool)
+    {
+        require(
+            value <= allowed[from][msg.sender],
+            "ERC20: transfer amount exceeds allowance"
+        );
+        _transfer(from, to, value);
+        allowed[from][msg.sender] = allowed[from][msg.sender].sub(value);
+        return true;
     }
 
     /**
@@ -1167,6 +1200,22 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         require(spender != address(0), "ERC20: approve to the zero address");
         allowed[owner][spender] = value;
         emit Approval(owner, spender, value);
+    }
+
+    /**
+     * @notice Gets the remaining amount of fiat tokens a spender is allowed to transfer on
+     * behalf of the token owner.
+     * @param owner   The token owner's address.
+     * @param spender The spender's address.
+     * @return The remaining allowance.
+     */
+    function allowance(address owner, address spender)
+        external
+        override
+        view
+        returns (uint256)
+    {
+        return allowed[owner][spender];
     }
 
     function increaseAllowance(address spender, uint256 increment)
@@ -1243,76 +1292,203 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         _permit(owner, spender, value, deadline, signature);
     }
 
+
+    // Blacklisting
+
+
     /**
-     * @notice Transfers tokens from an address to another by spending the caller's allowance.
-     * @dev The caller must have some fiat token allowance on the payer's tokens.
-     * @param from  Payer's address.
-     * @param to    Payee's address.
-     * @param value Transfer amount.
-     * @return True if the operation was successful.
+     * @inheritdoc Blacklistable
      */
-    function transferFrom(
-        address from,
-        address to,
-        uint256 value
-    )
-        external
-        override
-        whenNotPaused
-        notBlacklisted(msg.sender)
-        notBlacklisted(from)
-        notBlacklisted(to)
+    function _blacklist(address _account) internal override {
+        _setBlacklistState(_account, true);
+    }
+
+    /**
+     * @inheritdoc Blacklistable
+     */
+    function _unBlacklist(address _account) internal override {
+        _setBlacklistState(_account, false);
+    }
+
+    /**
+     * @inheritdoc Blacklistable
+     */
+    function _isBlacklisted(address _account)
+        internal
+        virtual override
+        view
         returns (bool)
     {
+        return balanceAndBlacklistStates[_account] >> 255 == 1;
+    }
+
+    /**
+     * @dev Helper method that sets the blacklist state of an account on balanceAndBlacklistStates.
+     * If _shouldBlacklist is true, we apply a (1 << 255) bitmask with an OR operation on the
+     * account's balanceAndBlacklistState. This flips the high bit for the account to 1,
+     * indicating that the account is blacklisted.
+     *
+     * If _shouldBlacklist if false, we reset the account's balanceAndBlacklistStates to their
+     * balances. This clears the high bit for the account, indicating that the account is unblacklisted.
+     * @param _account         The address of the account.
+     * @param _shouldBlacklist True if the account should be blacklisted, false if the account should be unblacklisted.
+     */
+    function _setBlacklistState(address _account, bool _shouldBlacklist)
+        internal
+        virtual
+    {
+        balanceAndBlacklistStates[_account] = _shouldBlacklist
+            ? balanceAndBlacklistStates[_account] | (1 << 255)
+            : _balanceOf(_account);
+    }
+
+
+
+    // Minting
+
+
+    /**
+     * @notice Mints fiat tokens to an address.
+     * @param _to The address that will receive the minted tokens.
+     * @param _amount The amount of tokens to mint. Must be less than or equal
+     * to the minterAllowance of the caller.
+     * @return True if the operation was successful.
+     */
+    function mint(address _to, uint256 _amount)
+        external
+        whenNotPaused
+        onlyMinters
+        notBlacklisted(msg.sender)
+        notBlacklisted(_to)
+        returns (bool)
+    {
+        require(_to != address(0), "FiatToken: mint to the zero address");
+        require(_amount > 0, "FiatToken: mint amount not greater than 0");
+
+        uint256 mintingAllowedAmount = minterAllowed[msg.sender];
         require(
-            value <= allowed[from][msg.sender],
-            "ERC20: transfer amount exceeds allowance"
+            _amount <= mintingAllowedAmount,
+            "FiatToken: mint amount exceeds minterAllowance"
         );
-        _transfer(from, to, value);
-        allowed[from][msg.sender] = allowed[from][msg.sender].sub(value);
+
+        totalSupply_ = totalSupply_.add(_amount);
+        _setBalance(_to, _balanceOf(_to).add(_amount));
+        minterAllowed[msg.sender] = mintingAllowedAmount.sub(_amount);
+        emit Mint(msg.sender, _to, _amount);
+        emit Transfer(address(0), _to, _amount);
         return true;
     }
 
     /**
-     * @notice Transfers tokens from the caller.
-     * @param to    Payee's address.
-     * @param value Transfer amount.
+     * @notice Allows a minter to burn some of its own tokens.
+     * @dev The caller must be a minter, must not be blacklisted, and the amount to burn
+     * should be less than or equal to the account's balance.
+     * @param _amount the amount of tokens to be burned.
+     */
+    function burn(uint256 _amount)
+        external
+        whenNotPaused
+        onlyMinters
+        notBlacklisted(msg.sender)
+    {
+        uint256 balance = _balanceOf(msg.sender);
+        require(_amount > 0, "FiatToken: burn amount not greater than 0");
+        require(balance >= _amount, "FiatToken: burn amount exceeds balance");
+
+        totalSupply_ = totalSupply_.sub(_amount);
+        _setBalance(msg.sender, balance.sub(_amount));
+        emit Burn(msg.sender, _amount);
+        emit Transfer(msg.sender, address(0), _amount);
+    }
+
+    /**
+     * @dev Throws if called by any account other than the masterMinter
+     */
+    modifier onlyMasterMinter() {
+        require(
+            msg.sender == masterMinter,
+            "FiatToken: caller is not the masterMinter"
+        );
+        _;
+    }
+
+    /**
+     * @dev Throws if called by any account other than a minter.
+     */
+    modifier onlyMinters() {
+        require(minters[msg.sender], "FiatToken: caller is not a minter");
+        _;
+    }
+
+    /**
+     * @notice Gets the minter allowance for an account.
+     * @param minter The address to check.
+     * @return The remaining minter allowance for the account.
+     */
+    function minterAllowance(address minter) external view returns (uint256) {
+        return minterAllowed[minter];
+    }
+
+    /**
+     * @notice Checks if an account is a minter.
+     * @param account The address to check.
+     * @return True if the account is a minter, false if the account is not a minter.
+     */
+    function isMinter(address account) external view returns (bool) {
+        return minters[account];
+    }
+    
+    /**
+     * @notice Adds or updates a new minter with a mint allowance.
+     * @param minter The address of the minter.
+     * @param minterAllowedAmount The minting amount allowed for the minter.
      * @return True if the operation was successful.
      */
-    function transfer(address to, uint256 value)
+    function configureMinter(address minter, uint256 minterAllowedAmount)
         external
-        override
         whenNotPaused
-        notBlacklisted(msg.sender)
-        notBlacklisted(to)
+        onlyMasterMinter
         returns (bool)
     {
-        _transfer(msg.sender, to, value);
+        minters[minter] = true;
+        minterAllowed[minter] = minterAllowedAmount;
+        emit MinterConfigured(minter, minterAllowedAmount);
         return true;
     }
 
     /**
-     * @dev Internal function to process transfers.
-     * @param from  Payer's address.
-     * @param to    Payee's address.
-     * @param value Transfer amount.
+     * @notice Removes a minter.
+     * @param minter The address of the minter to remove.
+     * @return True if the operation was successful.
      */
-    function _transfer(
-        address from,
-        address to,
-        uint256 value
-    ) internal virtual override {
-        require(from != address(0), "ERC20: transfer from the zero address");
-        require(to != address(0), "ERC20: transfer to the zero address");
-        require(
-            value <= _balanceOf(from),
-            "ERC20: transfer amount exceeds balance"
-        );
-
-        _setBalance(from, _balanceOf(from).sub(value));
-        _setBalance(to, _balanceOf(to).add(value));
-        emit Transfer(from, to, value);
+    function removeMinter(address minter)
+        external
+        onlyMasterMinter
+        returns (bool)
+    {
+        minters[minter] = false;
+        minterAllowed[minter] = 0;
+        emit MinterRemoved(minter);
+        return true;
     }
+
+    /**
+     * @notice Updates the master minter address.
+     * @param _newMasterMinter The address of the new master minter.
+     */
+    function updateMasterMinter(address _newMasterMinter) external onlyOwner {
+        require(
+            _newMasterMinter != address(0),
+            "FiatToken: new masterMinter is the zero address"
+        );
+        masterMinter = _newMasterMinter;
+        emit MasterMinterChanged(masterMinter);
+    }
+
+
+
+    // Authorization
+
 
     /**
      * @notice Execute a transfer with a signed authorization
@@ -1392,159 +1568,5 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         bytes memory signature
     ) external whenNotPaused {
         _cancelAuthorization(authorizer, nonce, signature);
-    }
-
-    /**
-     * @notice Adds or updates a new minter with a mint allowance.
-     * @param minter The address of the minter.
-     * @param minterAllowedAmount The minting amount allowed for the minter.
-     * @return True if the operation was successful.
-     */
-    function configureMinter(address minter, uint256 minterAllowedAmount)
-        external
-        whenNotPaused
-        onlyMasterMinter
-        returns (bool)
-    {
-        minters[minter] = true;
-        minterAllowed[minter] = minterAllowedAmount;
-        emit MinterConfigured(minter, minterAllowedAmount);
-        return true;
-    }
-
-    /**
-     * @notice Removes a minter.
-     * @param minter The address of the minter to remove.
-     * @return True if the operation was successful.
-     */
-    function removeMinter(address minter)
-        external
-        onlyMasterMinter
-        returns (bool)
-    {
-        minters[minter] = false;
-        minterAllowed[minter] = 0;
-        emit MinterRemoved(minter);
-        return true;
-    }
-
-    /**
-     * @notice Allows a minter to burn some of its own tokens.
-     * @dev The caller must be a minter, must not be blacklisted, and the amount to burn
-     * should be less than or equal to the account's balance.
-     * @param _amount the amount of tokens to be burned.
-     */
-    function burn(uint256 _amount)
-        external
-        whenNotPaused
-        onlyMinters
-        notBlacklisted(msg.sender)
-    {
-        uint256 balance = _balanceOf(msg.sender);
-        require(_amount > 0, "FiatToken: burn amount not greater than 0");
-        require(balance >= _amount, "FiatToken: burn amount exceeds balance");
-
-        totalSupply_ = totalSupply_.sub(_amount);
-        _setBalance(msg.sender, balance.sub(_amount));
-        emit Burn(msg.sender, _amount);
-        emit Transfer(msg.sender, address(0), _amount);
-    }
-
-    /**
-     * @notice Updates the master minter address.
-     * @param _newMasterMinter The address of the new master minter.
-     */
-    function updateMasterMinter(address _newMasterMinter) external onlyOwner {
-        require(
-            _newMasterMinter != address(0),
-            "FiatToken: new masterMinter is the zero address"
-        );
-        masterMinter = _newMasterMinter;
-        emit MasterMinterChanged(masterMinter);
-    }
-
-    /**
-     * @inheritdoc Blacklistable
-     */
-    function _blacklist(address _account) internal override {
-        _setBlacklistState(_account, true);
-    }
-
-    /**
-     * @inheritdoc Blacklistable
-     */
-    function _unBlacklist(address _account) internal override {
-        _setBlacklistState(_account, false);
-    }
-
-    /**
-     * @dev Helper method that sets the blacklist state of an account on balanceAndBlacklistStates.
-     * If _shouldBlacklist is true, we apply a (1 << 255) bitmask with an OR operation on the
-     * account's balanceAndBlacklistState. This flips the high bit for the account to 1,
-     * indicating that the account is blacklisted.
-     *
-     * If _shouldBlacklist if false, we reset the account's balanceAndBlacklistStates to their
-     * balances. This clears the high bit for the account, indicating that the account is unblacklisted.
-     * @param _account         The address of the account.
-     * @param _shouldBlacklist True if the account should be blacklisted, false if the account should be unblacklisted.
-     */
-    function _setBlacklistState(address _account, bool _shouldBlacklist)
-        internal
-        virtual
-    {
-        balanceAndBlacklistStates[_account] = _shouldBlacklist
-            ? balanceAndBlacklistStates[_account] | (1 << 255)
-            : _balanceOf(_account);
-    }
-
-    /**
-     * @dev Helper method that sets the balance of an account on balanceAndBlacklistStates.
-     * Since balances are stored in the last 255 bits of the balanceAndBlacklistStates value,
-     * we need to ensure that the updated balance does not exceed (2^255 - 1).
-     * Since blacklisted accounts' balances cannot be updated, the method will also
-     * revert if the account is blacklisted
-     * @param _account The address of the account.
-     * @param _balance The new fiat token balance of the account (max: (2^255 - 1)).
-     */
-    function _setBalance(address _account, uint256 _balance) internal override {
-        require(
-            _balance <= ((1 << 255) - 1),
-            "FiatTokenV2_2: Balance exceeds (2^255 - 1)"
-        );
-        require(
-            !_isBlacklisted(_account),
-            "FiatTokenV2_2: Account is blacklisted"
-        );
-
-        balanceAndBlacklistStates[_account] = _balance;
-    }
-
-    /**
-     * @inheritdoc Blacklistable
-     */
-    function _isBlacklisted(address _account)
-        internal
-        virtual override
-        view
-        returns (bool)
-    {
-        return balanceAndBlacklistStates[_account] >> 255 == 1;
-    }
-
-    /**
-     * @dev Helper method to obtain the balance of an account. Since balances
-     * are stored in the last 255 bits of the balanceAndBlacklistStates value,
-     * we apply a ((1 << 255) - 1) bit bitmask with an AND operation on the
-     * balanceAndBlacklistState to obtain the balance.
-     * @param _account  The address of the account.
-     * @return          The fiat token balance of the account.
-     */
-    function _balanceOf(address _account)
-        internal
-        virtual
-        view
-        returns (uint256)
-    {
-        return balanceAndBlacklistStates[_account] & ((1 << 255) - 1);
     }
 }
