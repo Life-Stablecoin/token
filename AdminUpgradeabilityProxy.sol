@@ -143,7 +143,7 @@ contract UpgradeabilityProxy is Proxy {
      */
     function _setImplementation(address newImplementation) private {
         require(
-            Address.isContract(newImplementation),
+            address(newImplementation).code.length > 0, // Address.isContract(newImplementation) was deprecated in favor of this
             "Cannot set a proxy implementation to a non-contract address"
         );
 
