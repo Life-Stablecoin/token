@@ -2,9 +2,6 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-// for safe transfers of other tokens in Rescuer
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol"; 
-
 
 /*
 Changes from the USDC contract:
@@ -243,57 +240,6 @@ abstract contract Blacklistable is Ownable {
      * @param _account The address to unblacklist.
      */
     function _unBlacklist(address _account) internal virtual;
-}
-
-contract Rescuable is Ownable {
-    using SafeERC20 for IERC20;
-
-    address private _rescuer;
-
-    event RescuerChanged(address indexed newRescuer);
-
-    /**
-     * @notice Returns current rescuer
-     * @return Rescuer's address
-     */
-    function rescuer() external view returns (address) {
-        return _rescuer;
-    }
-
-    /**
-     * @notice Revert if called by any account other than the rescuer.
-     */
-    modifier onlyRescuer() {
-        require(msg.sender == _rescuer, "Rescuable: caller is not the rescuer");
-        _;
-    }
-
-    /**
-     * @notice Rescue ERC20 tokens locked up in this contract.
-     * @param tokenContract ERC20 token contract address
-     * @param to        Recipient address
-     * @param amount    Amount to withdraw
-     */
-    function rescueERC20(
-        IERC20 tokenContract,
-        address to,
-        uint256 amount
-    ) external onlyRescuer {
-        tokenContract.safeTransfer(to, amount);
-    }
-
-    /**
-     * @notice Updates the rescuer address.
-     * @param newRescuer The address of the new rescuer.
-     */
-    function updateRescuer(address newRescuer) external onlyOwner {
-        require(
-            newRescuer != address(0),
-            "Rescuable: new rescuer is the zero address"
-        );
-        _rescuer = newRescuer;
-        emit RescuerChanged(newRescuer);
-    }
 }
 
 library EIP712 {
@@ -924,7 +870,7 @@ abstract contract EIP3009 is AbstractFiatTokenV1 {
  * @dev ERC20 Token backed by fiat reserves
  */
 contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable, 
-    Blacklistable, Rescuable, EIP3009, EIP2612 {
+    Blacklistable, EIP3009, EIP2612 {
     string public name;
     uint8 public decimals;
     string public symbol;
