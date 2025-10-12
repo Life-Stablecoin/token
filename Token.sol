@@ -9,6 +9,9 @@ Changes from the USDC contract:
 - merged AbstractFiatTokenV2 into AbstractFiatTokenV1
 - EIP712Domain removed because it only contains _DEPRECATED_CACHED_DOMAIN_SEPARATOR
 - removed initialized boolean, _initializedVersion is enough
+- used block.timestamp instead of now (deprecated in modern solidity)
+- used +/- instead of add/sub (deprecated in modern solidity)
+
 */
 
 abstract contract AbstractFiatTokenV1  {
