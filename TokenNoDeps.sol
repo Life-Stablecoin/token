@@ -1947,7 +1947,7 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
      */
     function approve(address spender, uint256 value)
         external
-        virtual override
+        override
         whenNotPaused
         notBlacklisted(msg.sender)
         notBlacklisted(spender)
@@ -2003,7 +2003,6 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
 
     function decreaseAllowance(address spender, uint256 decrement)
         external
-        virtual
         whenNotPaused
         returns (bool)
     {
