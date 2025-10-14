@@ -1,9 +1,5 @@
 /**
  * SPDX-License-Identifier: Apache-2.0
-
- Changes from the USDC contract:
-- removed public from constructors (not needed in Solidity 0.7 and above)
-- added empty receive() to remove warning
  */
 
 pragma solidity >=0.8.0;
