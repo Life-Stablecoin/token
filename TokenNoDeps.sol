@@ -1994,7 +1994,6 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
 
     function increaseAllowance(address spender, uint256 increment)
         external
-        virtual
         whenNotPaused
         returns (bool)
     {
