@@ -1722,7 +1722,7 @@ abstract contract ERC20Upgradeable is Initializable, ContextUpgradeable, IERC20,
  * @title USD Coin (USDC)
  * @dev Implementation of the USDC with custom storage slot
  */
-contract USDC is Initializable, ContextUpgradeable, ERC20Upgradeable, PausableUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpgradeable {
+contract FiatToken is Initializable, ContextUpgradeable, ERC20Upgradeable, PausableUpgradeable, Ownable2StepUpgradeable, ReentrancyGuardUpgradeable {
     using SafeERC20 for IERC20;
     using AddressValidator for string;
     uint256 public constant INITIAL_SUPPLY = 0;
@@ -1756,7 +1756,7 @@ contract USDC is Initializable, ContextUpgradeable, ERC20Upgradeable, PausableUp
         require(minBurnAmount != 0, "Minimum burn amount must be greater than 0");
 
         __Ownable_init(owner);
-        __ERC20_init("USD Coin", "USDC");
+        __ERC20_init("AED", "AED");
         __Pausable_init();
 
         USDCStorage storage $ = _getUSDCStorage();
