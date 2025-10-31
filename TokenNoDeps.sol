@@ -1353,9 +1353,10 @@ abstract contract EIP3009 is AbstractFiatTokenV1 {
 contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable, 
     Blacklistable, Rescuable, EIP3009, EIP2612 {
     string public name;
-    uint8 public decimals;
     string public symbol;
+    uint8 public decimals;
     string public currency;
+    
     address public masterMinter;
     uint8 internal _initializedVersion;
 
