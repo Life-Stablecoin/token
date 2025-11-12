@@ -4,7 +4,7 @@
 
 pragma solidity >=0.8.0;
 
-interface IERC20 {
+interface ITRC20 {
     /**
      * @dev Emitted when `value` tokens are moved from one account (`from`) to
      * another (`to`).
@@ -95,7 +95,7 @@ interface IERC165 {
  * Defines an extension interface for ERC-20 tokens that supports executing code on a recipient contract
  * after `transfer` or `transferFrom`, or code on a spender contract after `approve`, in a single transaction.
  */
-interface IERC1363 is IERC20, IERC165 {
+interface IERC1363 is ITRC20, IERC165 {
     /*
      * Note: the ERC-165 identifier for this interface is 0xb0202a11.
      * 0xb0202a11 ===
@@ -169,32 +169,32 @@ interface IERC1363 is IERC20, IERC165 {
 
 
 /**
- * @title SafeERC20
+ * @title SafeTRC20
  * @dev Wrappers around ERC-20 operations that throw on failure (when the token
  * contract returns false). Tokens that return no value (and instead revert or
  * throw on failure) are also supported, non-reverting calls are assumed to be
  * successful.
- * To use this library you can add a `using SafeERC20 for IERC20;` statement to your contract,
+ * To use this library you can add a `using SafeTRC20 for ITRC20;` statement to your contract,
  * which allows you to call the safe operations as `token.safeTransfer(...)`, etc.
  */
-library SafeERC20 {
+library SafeTRC20 {
     /**
      * @dev An operation with an ERC-20 token failed.
      */
-    error SafeERC20FailedOperation(address token);
+    error SafeTRC20FailedOperation(address token);
 
     /**
      * @dev Indicates a failed `decreaseAllowance` request.
      */
-    error SafeERC20FailedDecreaseAllowance(address spender, uint256 currentAllowance, uint256 requestedDecrease);
+    error SafeTRC20FailedDecreaseAllowance(address spender, uint256 currentAllowance, uint256 requestedDecrease);
 
     /**
      * @dev Transfer `value` amount of `token` from the calling contract to `to`. If `token` returns no value,
      * non-reverting calls are assumed to be successful.
      */
-    function safeTransfer(IERC20 token, address to, uint256 value) internal {
+    function safeTransfer(ITRC20 token, address to, uint256 value) internal {
         if (!_safeTransfer(token, to, value, true)) {
-            revert SafeERC20FailedOperation(address(token));
+            revert SafeTRC20FailedOperation(address(token));
         }
     }
 
@@ -202,23 +202,23 @@ library SafeERC20 {
      * @dev Transfer `value` amount of `token` from `from` to `to`, spending the approval given by `from` to the
      * calling contract. If `token` returns no value, non-reverting calls are assumed to be successful.
      */
-    function safeTransferFrom(IERC20 token, address from, address to, uint256 value) internal {
+    function safeTransferFrom(ITRC20 token, address from, address to, uint256 value) internal {
         if (!_safeTransferFrom(token, from, to, value, true)) {
-            revert SafeERC20FailedOperation(address(token));
+            revert SafeTRC20FailedOperation(address(token));
         }
     }
 
     /**
      * @dev Variant of {safeTransfer} that returns a bool instead of reverting if the operation is not successful.
      */
-    function trySafeTransfer(IERC20 token, address to, uint256 value) internal returns (bool) {
+    function trySafeTransfer(ITRC20 token, address to, uint256 value) internal returns (bool) {
         return _safeTransfer(token, to, value, false);
     }
 
     /**
      * @dev Variant of {safeTransferFrom} that returns a bool instead of reverting if the operation is not successful.
      */
-    function trySafeTransferFrom(IERC20 token, address from, address to, uint256 value) internal returns (bool) {
+    function trySafeTransferFrom(ITRC20 token, address from, address to, uint256 value) internal returns (bool) {
         return _safeTransferFrom(token, from, to, value, false);
     }
 
@@ -231,7 +231,7 @@ library SafeERC20 {
      * this function. Performing a {safeIncreaseAllowance} or {safeDecreaseAllowance} operation on a token contract
      * that has a non-zero temporary allowance (for that particular owner-spender) will result in unexpected behavior.
      */
-    function safeIncreaseAllowance(IERC20 token, address spender, uint256 value) internal {
+    function safeIncreaseAllowance(ITRC20 token, address spender, uint256 value) internal {
         uint256 oldAllowance = token.allowance(address(this), spender);
         forceApprove(token, spender, oldAllowance + value);
     }
@@ -245,11 +245,11 @@ library SafeERC20 {
      * this function. Performing a {safeIncreaseAllowance} or {safeDecreaseAllowance} operation on a token contract
      * that has a non-zero temporary allowance (for that particular owner-spender) will result in unexpected behavior.
      */
-    function safeDecreaseAllowance(IERC20 token, address spender, uint256 requestedDecrease) internal {
+    function safeDecreaseAllowance(ITRC20 token, address spender, uint256 requestedDecrease) internal {
         unchecked {
             uint256 currentAllowance = token.allowance(address(this), spender);
             if (currentAllowance < requestedDecrease) {
-                revert SafeERC20FailedDecreaseAllowance(spender, currentAllowance, requestedDecrease);
+                revert SafeTRC20FailedDecreaseAllowance(spender, currentAllowance, requestedDecrease);
             }
             forceApprove(token, spender, currentAllowance - requestedDecrease);
         }
@@ -264,15 +264,15 @@ library SafeERC20 {
      * only sets the "standard" allowance. Any temporary allowance will remain active, in addition to the value being
      * set here.
      */
-    function forceApprove(IERC20 token, address spender, uint256 value) internal {
+    function forceApprove(ITRC20 token, address spender, uint256 value) internal {
         if (!_safeApprove(token, spender, value, false)) {
-            if (!_safeApprove(token, spender, 0, true)) revert SafeERC20FailedOperation(address(token));
-            if (!_safeApprove(token, spender, value, true)) revert SafeERC20FailedOperation(address(token));
+            if (!_safeApprove(token, spender, 0, true)) revert SafeTRC20FailedOperation(address(token));
+            if (!_safeApprove(token, spender, value, true)) revert SafeTRC20FailedOperation(address(token));
         }
     }
 
     /**
-     * @dev Performs an {ERC1363} transferAndCall, with a fallback to the simple {ERC20} transfer if the target has no
+     * @dev Performs an {ERC1363} transferAndCall, with a fallback to the simple {TRC20} transfer if the target has no
      * code. This can be used to implement an {ERC721}-like safe transfer that relies on {ERC1363} checks when
      * targeting contracts.
      *
@@ -282,12 +282,12 @@ library SafeERC20 {
         if (to.code.length == 0) {
             safeTransfer(token, to, value);
         } else if (!token.transferAndCall(to, value, data)) {
-            revert SafeERC20FailedOperation(address(token));
+            revert SafeTRC20FailedOperation(address(token));
         }
     }
 
     /**
-     * @dev Performs an {ERC1363} transferFromAndCall, with a fallback to the simple {ERC20} transferFrom if the target
+     * @dev Performs an {ERC1363} transferFromAndCall, with a fallback to the simple {TRC20} transferFrom if the target
      * has no code. This can be used to implement an {ERC721}-like safe transfer that relies on {ERC1363} checks when
      * targeting contracts.
      *
@@ -303,12 +303,12 @@ library SafeERC20 {
         if (to.code.length == 0) {
             safeTransferFrom(token, from, to, value);
         } else if (!token.transferFromAndCall(from, to, value, data)) {
-            revert SafeERC20FailedOperation(address(token));
+            revert SafeTRC20FailedOperation(address(token));
         }
     }
 
     /**
-     * @dev Performs an {ERC1363} approveAndCall, with a fallback to the simple {ERC20} approve if the target has no
+     * @dev Performs an {ERC1363} approveAndCall, with a fallback to the simple {TRC20} approve if the target has no
      * code. This can be used to implement an {ERC721}-like safe transfer that rely on {ERC1363} checks when
      * targeting contracts.
      *
@@ -322,7 +322,7 @@ library SafeERC20 {
         if (to.code.length == 0) {
             forceApprove(token, to, value);
         } else if (!token.approveAndCall(to, value, data)) {
-            revert SafeERC20FailedOperation(address(token));
+            revert SafeTRC20FailedOperation(address(token));
         }
     }
 
@@ -335,8 +335,8 @@ library SafeERC20 {
      * @param value The amount of token to transfer
      * @param bubble Behavior switch if the transfer call reverts: bubble the revert reason or return a false boolean.
      */
-    function _safeTransfer(IERC20 token, address to, uint256 value, bool bubble) private returns (bool success) {
-        bytes4 selector = IERC20.transfer.selector;
+    function _safeTransfer(ITRC20 token, address to, uint256 value, bool bubble) private returns (bool success) {
+        bytes4 selector = ITRC20.transfer.selector;
 
         assembly ("memory-safe") {
             let fmp := mload(0x40)
@@ -372,13 +372,13 @@ library SafeERC20 {
      * @param bubble Behavior switch if the transfer call reverts: bubble the revert reason or return a false boolean.
      */
     function _safeTransferFrom(
-        IERC20 token,
+        ITRC20 token,
         address from,
         address to,
         uint256 value,
         bool bubble
     ) private returns (bool success) {
-        bytes4 selector = IERC20.transferFrom.selector;
+        bytes4 selector = ITRC20.transferFrom.selector;
 
         assembly ("memory-safe") {
             let fmp := mload(0x40)
@@ -414,8 +414,8 @@ library SafeERC20 {
      * @param value The amount of token to transfer
      * @param bubble Behavior switch if the transfer call reverts: bubble the revert reason or return a false boolean.
      */
-    function _safeApprove(IERC20 token, address spender, uint256 value, bool bubble) private returns (bool success) {
-        bytes4 selector = IERC20.approve.selector;
+    function _safeApprove(ITRC20 token, address spender, uint256 value, bool bubble) private returns (bool success) {
+        bytes4 selector = ITRC20.approve.selector;
 
         assembly ("memory-safe") {
             let fmp := mload(0x40)
@@ -671,7 +671,7 @@ abstract contract Blacklistable is Ownable {
 }
 
 contract Rescuable is Ownable {
-    using SafeERC20 for IERC20;
+    using SafeTRC20 for ITRC20;
 
     address private _rescuer;
 
@@ -694,13 +694,13 @@ contract Rescuable is Ownable {
     }
 
     /**
-     * @notice Rescue ERC20 tokens locked up in this contract.
-     * @param tokenContract ERC20 token contract address
+     * @notice Rescue TRC20 tokens locked up in this contract.
+     * @param tokenContract TRC20 token contract address
      * @param to        Recipient address
      * @param amount    Amount to withdraw
      */
-    function rescueERC20(
-        IERC20 tokenContract,
+    function rescueTRC20(
+        ITRC20 tokenContract,
         address to,
         uint256 amount
     ) external onlyRescuer {
@@ -723,9 +723,9 @@ contract Rescuable is Ownable {
 
 /**
  * @title FiatToken
- * @dev ERC20 Token backed by fiat reserves
+ * @dev TRC20 Token backed by fiat reserves
  */
-contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable, 
+contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable, 
     Blacklistable, Rescuable {
     string public name;
     string public symbol;
@@ -840,11 +840,11 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         address to,
         uint256 value
     ) internal virtual override {
-        require(from != address(0), "ERC20: transfer from the zero address");
-        require(to != address(0), "ERC20: transfer to the zero address");
+        require(from != address(0), "TRC20: transfer from the zero address");
+        require(to != address(0), "TRC20: transfer to the zero address");
         require(
             value <= _balanceOf(from),
-            "ERC20: transfer amount exceeds balance"
+            "TRC20: transfer amount exceeds balance"
         );
 
         _setBalance(from, _balanceOf(from) - value);
@@ -937,7 +937,7 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
     {
         require(
             value <= allowed[from][msg.sender],
-            "ERC20: transfer amount exceeds allowance"
+            "TRC20: transfer amount exceeds allowance"
         );
         _transfer(from, to, value);
         allowed[from][msg.sender] = allowed[from][msg.sender] - value;
@@ -975,8 +975,8 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
     ) internal 
     virtual override 
     {
-        require(owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
+        require(owner != address(0), "TRC20: approve from the zero address");
+        require(spender != address(0), "TRC20: approve to the zero address");
         allowed[owner][spender] = value;
         emit Approval(owner, spender, value);
     }
@@ -1041,7 +1041,7 @@ contract FiatTokenV1 is IERC20, AbstractFiatTokenV1, Ownable, Pausable,
         uint256 decrement
     ) internal override {
         uint256 newAllowance = allowed[owner][spender] - decrement;
-        require(newAllowance >= 0, "ERC20: decreased allowance below zero");
+        require(newAllowance >= 0, "TRC20: decreased allowance below zero");
         _approve(owner, spender, newAllowance);
     }
 
