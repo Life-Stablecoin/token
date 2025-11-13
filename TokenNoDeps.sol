@@ -76,7 +76,7 @@ interface ITRC20 {
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 }
 
-interface IERC165 {
+interface ITRC165 {
     /**
      * @dev Returns true if this contract implements the interface defined by
      * `interfaceId`. See the corresponding
@@ -89,15 +89,15 @@ interface IERC165 {
 }
 
 /**
- * @title IERC1363
- * @dev Interface of the ERC-1363 standard as defined in the https://eips.ethereum.org/EIPS/eip-1363[ERC-1363].
+ * @title ITRC1363
+ * @dev Interface of the TRC-1363 standard as defined in the https://eips.ethereum.org/EIPS/eip-1363[TRC-1363].
  *
- * Defines an extension interface for ERC-20 tokens that supports executing code on a recipient contract
+ * Defines an extension interface for TRC-20 tokens that supports executing code on a recipient contract
  * after `transfer` or `transferFrom`, or code on a spender contract after `approve`, in a single transaction.
  */
-interface IERC1363 is ITRC20, IERC165 {
+interface ITRC1363 is ITRC20, ITRC165 {
     /*
-     * Note: the ERC-165 identifier for this interface is 0xb0202a11.
+     * Note: the TRC-165 identifier for this interface is 0xb0202a11.
      * 0xb0202a11 ===
      *   bytes4(keccak256('transferAndCall(address,uint256)')) ^
      *   bytes4(keccak256('transferAndCall(address,uint256,bytes)')) ^
@@ -109,7 +109,7 @@ interface IERC1363 is ITRC20, IERC165 {
 
     /**
      * @dev Moves a `value` amount of tokens from the caller's account to `to`
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`.
+     * and then calls {ITRC1363Receiver-onTransferReceived} on `to`.
      * @param to The address which you want to transfer to.
      * @param value The amount of tokens to be transferred.
      * @return A boolean value indicating whether the operation succeeded unless throwing.
@@ -118,7 +118,7 @@ interface IERC1363 is ITRC20, IERC165 {
 
     /**
      * @dev Moves a `value` amount of tokens from the caller's account to `to`
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`.
+     * and then calls {ITRC1363Receiver-onTransferReceived} on `to`.
      * @param to The address which you want to transfer to.
      * @param value The amount of tokens to be transferred.
      * @param data Additional data with no specified format, sent in call to `to`.
@@ -128,7 +128,7 @@ interface IERC1363 is ITRC20, IERC165 {
 
     /**
      * @dev Moves a `value` amount of tokens from `from` to `to` using the allowance mechanism
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`.
+     * and then calls {ITRC1363Receiver-onTransferReceived} on `to`.
      * @param from The address which you want to send tokens from.
      * @param to The address which you want to transfer to.
      * @param value The amount of tokens to be transferred.
@@ -138,7 +138,7 @@ interface IERC1363 is ITRC20, IERC165 {
 
     /**
      * @dev Moves a `value` amount of tokens from `from` to `to` using the allowance mechanism
-     * and then calls {IERC1363Receiver-onTransferReceived} on `to`.
+     * and then calls {ITRC1363Receiver-onTransferReceived} on `to`.
      * @param from The address which you want to send tokens from.
      * @param to The address which you want to transfer to.
      * @param value The amount of tokens to be transferred.
@@ -149,7 +149,7 @@ interface IERC1363 is ITRC20, IERC165 {
 
     /**
      * @dev Sets a `value` amount of tokens as the allowance of `spender` over the
-     * caller's tokens and then calls {IERC1363Spender-onApprovalReceived} on `spender`.
+     * caller's tokens and then calls {ITRC1363Spender-onApprovalReceived} on `spender`.
      * @param spender The address which will spend the funds.
      * @param value The amount of tokens to be spent.
      * @return A boolean value indicating whether the operation succeeded unless throwing.
@@ -158,7 +158,7 @@ interface IERC1363 is ITRC20, IERC165 {
 
     /**
      * @dev Sets a `value` amount of tokens as the allowance of `spender` over the
-     * caller's tokens and then calls {IERC1363Spender-onApprovalReceived} on `spender`.
+     * caller's tokens and then calls {ITRC1363Spender-onApprovalReceived} on `spender`.
      * @param spender The address which will spend the funds.
      * @param value The amount of tokens to be spent.
      * @param data Additional data with no specified format, sent in call to `spender`.
@@ -170,7 +170,7 @@ interface IERC1363 is ITRC20, IERC165 {
 
 /**
  * @title SafeTRC20
- * @dev Wrappers around ERC-20 operations that throw on failure (when the token
+ * @dev Wrappers around TRC-20 operations that throw on failure (when the token
  * contract returns false). Tokens that return no value (and instead revert or
  * throw on failure) are also supported, non-reverting calls are assumed to be
  * successful.
@@ -179,7 +179,7 @@ interface IERC1363 is ITRC20, IERC165 {
  */
 library SafeTRC20 {
     /**
-     * @dev An operation with an ERC-20 token failed.
+     * @dev An operation with an TRC-20 token failed.
      */
     error SafeTRC20FailedOperation(address token);
 
@@ -226,8 +226,8 @@ library SafeTRC20 {
      * @dev Increase the calling contract's allowance toward `spender` by `value`. If `token` returns no value,
      * non-reverting calls are assumed to be successful.
      *
-     * IMPORTANT: If the token implements ERC-7674 (ERC-20 with temporary allowance), and if the "client"
-     * smart contract uses ERC-7674 to set temporary allowances, then the "client" smart contract should avoid using
+     * IMPORTANT: If the token implements TRC-7674 (TRC-20 with temporary allowance), and if the "client"
+     * smart contract uses TRC-7674 to set temporary allowances, then the "client" smart contract should avoid using
      * this function. Performing a {safeIncreaseAllowance} or {safeDecreaseAllowance} operation on a token contract
      * that has a non-zero temporary allowance (for that particular owner-spender) will result in unexpected behavior.
      */
@@ -240,8 +240,8 @@ library SafeTRC20 {
      * @dev Decrease the calling contract's allowance toward `spender` by `requestedDecrease`. If `token` returns no
      * value, non-reverting calls are assumed to be successful.
      *
-     * IMPORTANT: If the token implements ERC-7674 (ERC-20 with temporary allowance), and if the "client"
-     * smart contract uses ERC-7674 to set temporary allowances, then the "client" smart contract should avoid using
+     * IMPORTANT: If the token implements TRC-7674 (TRC-20 with temporary allowance), and if the "client"
+     * smart contract uses TRC-7674 to set temporary allowances, then the "client" smart contract should avoid using
      * this function. Performing a {safeIncreaseAllowance} or {safeDecreaseAllowance} operation on a token contract
      * that has a non-zero temporary allowance (for that particular owner-spender) will result in unexpected behavior.
      */
@@ -260,7 +260,7 @@ library SafeTRC20 {
      * non-reverting calls are assumed to be successful. Meant to be used with tokens that require the approval
      * to be set to zero before setting it to a non-zero value, such as USDT.
      *
-     * NOTE: If the token implements ERC-7674, this function will not modify any temporary allowance. This function
+     * NOTE: If the token implements TRC-7674, this function will not modify any temporary allowance. This function
      * only sets the "standard" allowance. Any temporary allowance will remain active, in addition to the value being
      * set here.
      */
@@ -272,13 +272,13 @@ library SafeTRC20 {
     }
 
     /**
-     * @dev Performs an {ERC1363} transferAndCall, with a fallback to the simple {TRC20} transfer if the target has no
-     * code. This can be used to implement an {ERC721}-like safe transfer that relies on {ERC1363} checks when
+     * @dev Performs an {TRC1363} transferAndCall, with a fallback to the simple {TRC20} transfer if the target has no
+     * code. This can be used to implement an {TRC721}-like safe transfer that relies on {TRC1363} checks when
      * targeting contracts.
      *
      * Reverts if the returned value is other than `true`.
      */
-    function transferAndCallRelaxed(IERC1363 token, address to, uint256 value, bytes memory data) internal {
+    function transferAndCallRelaxed(ITRC1363 token, address to, uint256 value, bytes memory data) internal {
         if (to.code.length == 0) {
             safeTransfer(token, to, value);
         } else if (!token.transferAndCall(to, value, data)) {
@@ -287,14 +287,14 @@ library SafeTRC20 {
     }
 
     /**
-     * @dev Performs an {ERC1363} transferFromAndCall, with a fallback to the simple {TRC20} transferFrom if the target
-     * has no code. This can be used to implement an {ERC721}-like safe transfer that relies on {ERC1363} checks when
+     * @dev Performs an {TRC1363} transferFromAndCall, with a fallback to the simple {TRC20} transferFrom if the target
+     * has no code. This can be used to implement an {TRC721}-like safe transfer that relies on {TRC1363} checks when
      * targeting contracts.
      *
      * Reverts if the returned value is other than `true`.
      */
     function transferFromAndCallRelaxed(
-        IERC1363 token,
+        ITRC1363 token,
         address from,
         address to,
         uint256 value,
@@ -308,17 +308,17 @@ library SafeTRC20 {
     }
 
     /**
-     * @dev Performs an {ERC1363} approveAndCall, with a fallback to the simple {TRC20} approve if the target has no
-     * code. This can be used to implement an {ERC721}-like safe transfer that rely on {ERC1363} checks when
+     * @dev Performs an {TRC1363} approveAndCall, with a fallback to the simple {TRC20} approve if the target has no
+     * code. This can be used to implement an {TRC721}-like safe transfer that rely on {TRC1363} checks when
      * targeting contracts.
      *
      * NOTE: When the recipient address (`to`) has no code (i.e. is an EOA), this function behaves as {forceApprove}.
-     * Oppositely, when the recipient address (`to`) has code, this function only attempts to call {ERC1363-approveAndCall}
+     * Oppositely, when the recipient address (`to`) has code, this function only attempts to call {TRC1363-approveAndCall}
      * once without retrying, and relies on the returned value to be true.
      *
      * Reverts if the returned value is other than `true`.
      */
-    function approveAndCallRelaxed(IERC1363 token, address to, uint256 value, bytes memory data) internal {
+    function approveAndCallRelaxed(ITRC1363 token, address to, uint256 value, bytes memory data) internal {
         if (to.code.length == 0) {
             forceApprove(token, to, value);
         } else if (!token.approveAndCall(to, value, data)) {
