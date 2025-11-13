@@ -441,7 +441,7 @@ library SafeTRC20 {
     }
 }
 
-abstract contract AbstractFiatTokenV1  {
+abstract contract AbstractToken  {
     function _approve(
         address owner,
         address spender,
@@ -722,10 +722,10 @@ contract Rescuable is Ownable {
 }
 
 /**
- * @title FiatToken
+ * @title LifeUsdToken
  * @dev TRC20 Token backed by fiat reserves
  */
-contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable, 
+contract LifeUsdToken is ITRC20, AbstractToken, Ownable, Pausable, 
     Blacklistable, Rescuable {
     string public name;
     string public symbol;
@@ -751,18 +751,18 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
     event MasterMinterChanged(address indexed newMasterMinter);
 
     constructor () {
-        symbol = "LAED";
-        name = "Life AED";
-        currency = "AED";
+        symbol = "LUSD";
+        name = "Life USD";
+        currency = "USD";
         decimals = 6;
     }
 
     /**
-     * @notice Initializes the fiat token contract.
-     * @param newMasterMinter The masterMinter address for the fiat token.
-     * @param newPauser       The pauser address for the fiat token.
-     * @param newBlacklister  The blacklister address for the fiat token.
-     * @param newOwner        The owner of the fiat token.
+     * @notice Initializes the token contract.
+     * @param newMasterMinter The masterMinter address for the token.
+     * @param newPauser       The pauser address for the token.
+     * @param newBlacklister  The blacklister address for the token.
+     * @param newOwner        The owner of the token.
      */
     function initialize(
         address newMasterMinter,
@@ -770,22 +770,22 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
         address newBlacklister,
         address newOwner
     ) public {
-        require(_initializedVersion == 0, "FiatToken: contract is already initialized");
+        require(_initializedVersion == 0, "contract is already initialized");
         require(
             newMasterMinter != address(0),
-            "FiatToken: new masterMinter is the zero address"
+            "new masterMinter is the zero address"
         );
         require(
             newPauser != address(0),
-            "FiatToken: new pauser is the zero address"
+            "new pauser is the zero address"
         );
         require(
             newBlacklister != address(0),
-            "FiatToken: new blacklister is the zero address"
+            "new blacklister is the zero address"
         );
         require(
             newOwner != address(0),
-            "FiatToken: new owner is the zero address"
+            "new owner is the zero address"
         );
 
         masterMinter = newMasterMinter;
@@ -799,8 +799,8 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
     }
 
     /**
-     * @notice Gets the totalSupply of the fiat token.
-     * @return The totalSupply of the fiat token.
+     * @notice Gets the totalSupply of the token.
+     * @return The totalSupply of the token.
      */
     function totalSupply() external override view returns (uint256) {
         return totalSupply_;
@@ -852,9 +852,9 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
 
 
     /**
-     * @notice Gets the fiat token balance of an account.
+     * @notice Gets the token balance of an account.
      * @param account  The address to check.
-     * @return balance The fiat token balance of the account.
+     * @return balance The token balance of the account.
      */
     function balanceOf(address account)
         external
@@ -871,7 +871,7 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
      * we apply a ((1 << 255) - 1) bit bitmask with an AND operation on the
      * balanceAndBlacklistState to obtain the balance.
      * @param _account  The address of the account.
-     * @return          The fiat token balance of the account.
+     * @return The token balance of the account.
      */
     function _balanceOf(address _account)
         internal
@@ -889,16 +889,16 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
      * Since blacklisted accounts' balances cannot be updated, the method will also
      * revert if the account is blacklisted
      * @param _account The address of the account.
-     * @param _balance The new fiat token balance of the account (max: (2^255 - 1)).
+     * @param _balance The new token balance of the account (max: (2^255 - 1)).
      */
     function _setBalance(address _account, uint256 _balance) internal virtual {
         require(
             _balance <= ((1 << 255) - 1),
-            "FiatTokenV2_2: Balance exceeds (2^255 - 1)"
+            "Balance exceeds (2^255 - 1)"
         );
         require(
             !_isBlacklisted(_account),
-            "FiatTokenV2_2: Account is blacklisted"
+            "Account is blacklisted"
         );
 
         balanceAndBlacklistStates[_account] = _balance;
@@ -911,7 +911,7 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
 
     /**
      * @notice Transfers tokens from an address to another by spending the caller's allowance.
-     * @dev The caller must have some fiat token allowance on the payer's tokens.
+     * @dev The caller must have some token allowance on the payer's tokens.
      * @param from  Payer's address.
      * @param to    Payee's address.
      * @param value Transfer amount.
@@ -940,7 +940,7 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
     }
 
     /**
-     * @notice Sets a fiat token allowance for a spender to spend on behalf of the caller.
+     * @notice Sets a token allowance for a spender to spend on behalf of the caller.
      * @param spender The spender's address.
      * @param value   The allowance amount.
      * @return True if the operation was successful.
@@ -977,7 +977,7 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
     }
 
     /**
-     * @notice Gets the remaining amount of fiat tokens a spender is allowed to transfer on
+     * @notice Gets the remaining amount of tokens a spender is allowed to transfer on
      * behalf of the token owner.
      * @param owner   The token owner's address.
      * @param spender The spender's address.
@@ -1096,7 +1096,7 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
 
 
     /**
-     * @notice Mints fiat tokens to an address.
+     * @notice Mints tokens to an address.
      * @param _to The address that will receive the minted tokens.
      * @param _amount The amount of tokens to mint. Must be less than or equal
      * to the minterAllowance of the caller.
@@ -1110,13 +1110,13 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
         notBlacklisted(_to)
         returns (bool)
     {
-        require(_to != address(0), "FiatToken: mint to the zero address");
-        require(_amount > 0, "FiatToken: mint amount not greater than 0");
+        require(_to != address(0), "Mint to the zero address");
+        require(_amount > 0, "Mint amount not greater than 0");
 
         uint256 mintingAllowedAmount = minterAllowed[msg.sender];
         require(
             _amount <= mintingAllowedAmount,
-            "FiatToken: mint amount exceeds minterAllowance"
+            "Mint amount exceeds minterAllowance"
         );
 
         totalSupply_ = totalSupply_ + _amount;
@@ -1140,8 +1140,8 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
         notBlacklisted(msg.sender)
     {
         uint256 balance = _balanceOf(msg.sender);
-        require(_amount > 0, "FiatToken: burn amount not greater than 0");
-        require(balance >= _amount, "FiatToken: burn amount exceeds balance");
+        require(_amount > 0, "Burn amount not greater than 0");
+        require(balance >= _amount, "Burn amount exceeds balance");
 
         totalSupply_ = totalSupply_ - _amount;
         _setBalance(msg.sender, balance - _amount);
@@ -1155,7 +1155,7 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
     modifier onlyMasterMinter() {
         require(
             msg.sender == masterMinter,
-            "FiatToken: caller is not the masterMinter"
+            "Caller is not the masterMinter"
         );
         _;
     }
@@ -1164,7 +1164,7 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
      * @dev Throws if called by any account other than a minter.
      */
     modifier onlyMinters() {
-        require(minters[msg.sender], "FiatToken: caller is not a minter");
+        require(minters[msg.sender], "Caller is not a minter");
         _;
     }
 
@@ -1227,7 +1227,7 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
     function updateMasterMinter(address _newMasterMinter) external onlyOwner {
         require(
             _newMasterMinter != address(0),
-            "FiatToken: new masterMinter is the zero address"
+            "New masterMinter is the zero address"
         );
         masterMinter = _newMasterMinter;
         emit MasterMinterChanged(masterMinter);
