@@ -750,22 +750,21 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
     event MinterRemoved(address indexed oldMinter);
     event MasterMinterChanged(address indexed newMasterMinter);
 
+    constructor () {
+        symbol = "LAED";
+        name = "Life AED";
+        currency = "AED";
+        decimals = 6;
+    }
+
     /**
      * @notice Initializes the fiat token contract.
-     * @param tokenName       The name of the fiat token.
-     * @param tokenSymbol     The symbol of the fiat token.
-     * @param tokenCurrency   The fiat currency that the token represents.
-     * @param tokenDecimals   The number of decimals that the token uses.
      * @param newMasterMinter The masterMinter address for the fiat token.
      * @param newPauser       The pauser address for the fiat token.
      * @param newBlacklister  The blacklister address for the fiat token.
      * @param newOwner        The owner of the fiat token.
      */
     function initialize(
-        string memory tokenName,
-        string memory tokenSymbol,
-        string memory tokenCurrency,
-        uint8 tokenDecimals,
         address newMasterMinter,
         address newPauser,
         address newBlacklister,
@@ -789,10 +788,6 @@ contract FiatTokenV1 is ITRC20, AbstractFiatTokenV1, Ownable, Pausable,
             "FiatToken: new owner is the zero address"
         );
 
-        name = tokenName;
-        symbol = tokenSymbol;
-        currency = tokenCurrency;
-        decimals = tokenDecimals;
         masterMinter = newMasterMinter;
         pauser = newPauser;
         blacklister = newBlacklister;
